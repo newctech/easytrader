@@ -2,10 +2,11 @@
 
 * 进行自动的程序化股票交易
 * 实现自动登录
+* 支持跟踪 `joinquant` 的模拟交易
 * 支持命令行调用，方便其他语言适配
 * 支持 Python3 / Python2, Linux / Win, 推荐使用 `Python3`
-* 有兴趣的可以加群 `549879767` 、`429011814`(已满) 一起讨论
-* 捐助: [支付宝](http://7xqo8v.com1.z0.glb.clouddn.com/zhifubao2.png)  [微信](http://7xqo8v.com1.z0.glb.clouddn.com/wx.png) 或者 银河开户可以找我(qq: 903618848), 佣金w2,基金最低消费1元
+* 有兴趣的可以加群 `556050652` 、`549879767`(已满) 、`429011814`(已满) 一起讨论
+* 捐助: [支付宝](http://7xqo8v.com1.z0.glb.clouddn.com/zhifubao2.png)  [微信](http://7xqo8v.com1.z0.glb.clouddn.com/wx.png) 或者 银河开户可以加群找我
 
 
 **开发环境** : `Ubuntu 16.04` / `Python 3.5`
@@ -83,13 +84,20 @@ user = easytrader.use('yh') # 银河支持 ['yh', 'YH', '银河']
 
 #### 登录帐号
 
+##### 使用配置文件
+
 ```python
 user.prepare('/path/to/your/ht.json') // 或者 yjb.json 或者 yh.json 等配置文件路径
 ```
 
+##### 参数登录
+```
+user.prepare(user='用户名', password='券商加密后的密码, 雪球为明文密码')
+```
+
 **注**:
 
-配置文件需要自己用编辑器编辑生成, 请勿使用记事本, 推荐使用 [notepad++](https://notepad-plus-plus.org/zh/) 或者 [sublime text](http://www.sublimetext.com/)
+使用配置文件模式, 配置文件需要自己用编辑器编辑生成, 请勿使用记事本, 推荐使用 [notepad++](https://notepad-plus-plus.org/zh/) 或者 [sublime text](http://www.sublimetext.com/)
 
 
 格式可以参照 `Github` 目录下对应的 `json` 文件
@@ -337,6 +345,51 @@ print(ipo_data)
 ```python
 user.adjust_weight('000001', 10)
 ```
+
+### 跟踪 joinquant 的模拟交易
+
+#### 初始化跟踪的 trader
+
+这里以雪球为例
+
+```
+xq_user = easytrader.use('xq')
+xq_user.prepare('xq.json')
+```
+
+#### 初始化跟踪 joinquant 的 follower
+
+```
+jq_follower = easytrader.follower('jq')
+jq_follower.login(user='jq用户名', password='jq密码')
+```
+
+#### 连接 follower 和 trader
+
+```
+jq_follower.follow(xq_user, 'jq的模拟交易url')
+
+```
+
+注: jq的模拟交易url指的是对应模拟交易对应的可以查看持仓, 交易记录的页面, 类似 `https://www.joinquant.com/algorithm/live/index?backtestId=xxx`
+
+正常会输出 
+
+
+![](https://raw.githubusercontent.com/shidenggui/assets/master/easytrader/joinquant.jpg)
+
+
+enjoy it 
+
+#### 多用户跟踪多策略
+
+```
+jq_follower.follow(users=[xq_user, yh_user], strategies=['模拟交易url1', '模拟交易url2‘])
+```
+
+#### 目录下产生的 cmd_cache.pk
+
+这是用来存储历史执行过的交易指令，防止在重启程序时重复执行交易过的指令，可以通过 `jq_follower.follow(xxx, cmd_cache=False)` 来关闭
 
 ### 命令行模式
 
