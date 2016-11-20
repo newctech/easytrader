@@ -4,6 +4,7 @@ import os
 import re
 import time
 from numbers import Number
+import pandas as pd
 
 import requests
 
@@ -491,3 +492,127 @@ class XueQiuTrader(WebTrader):
         :param entrust_prop:
         """
         return self.__trade(stock_code, price, amount, volume, 'sell')
+
+    def get_k_data(self, code=None, start='', end='', autype='normal', ktype='1day', retry_count=3, pause=0.001):
+        """
+        获取k线数据
+        ---------
+        Parameters:
+          code:string
+                      股票代码 e.g. 600848 或SH000001
+          start:string
+                      开始日期 format：YYYY-MM-DD HH:MM:SS为空时取当前日期
+          end:string
+                      结束日期 format：YYYY-MM-DD HH:MM:SS为空时取去年今日
+          autype:string
+                      复权类型，before-前复权 after-后复权 normal-不复权，默认为normal
+          ktype：string
+                      数据类型，1day=日k线 1week=周 1month=月 5m=5分钟 15m=15分钟 30m=30分钟，60m=60分钟，默认为1day
+          retry_count : int, 默认 3
+                     如遇网络等问题重复执行的次数
+          pause : int, 默认 0
+                    重复请求数据过程中暂停的秒数，防止请求间隔时间太短出现的问题
+        return
+        -------
+          DataFrame
+              time 交易日期 
+              open 开盘价
+              close 收盘价
+              chg  涨跌
+              percent  涨幅
+              low 最低价
+              high  最高价
+              volume 成交量
+              turnrate  换手
+              ma5  五日线
+              ma10  十日线
+              ma20  二十日线
+              ma30  三十日线
+              dif  
+              dea
+              macd  MACD线
+            """
+        symbol = self._code_to_symbol(code)
+        if len(start) != 0:
+            start_Array = time.strptime(start, "%Y-%m-%d %H:%M:%S")
+            start = str(int(time.mktime(start_Array)*1000))
+        if len(end) != 0:
+            end_Array = time.strptime(end, "%Y-%m-%d %H:%M:%S")
+            end = str(int(time.mktime(end_Array)*1000))
+
+        now = str(int(time.time()*1000))
+        url = self.config['k_data_url']%(symbol, ktype, autype, start, end, now)
+        for _ in range(retry_count):
+            time.sleep(pause)
+            try:
+                request = self.session.get(url)
+                stocks = json.loads(request.text)
+                if len(stocks['chartlist']) == 0: #no data
+                    print('no data')
+                    return None
+            except Exception as e:
+                print(e)
+            else:
+                df = pd.DataFrame(stocks['chartlist'], columns=self.config['response_format']['xueqiu_k_data'])
+                #date_time = datetime.strptime(df['time'],'%a %b %d %H:%M:%S %z %Y')
+                #time = date_time.strftime('%Y-%m-%d %H:%M:%S')
+                return df
+
+    def get_minute_quotes(self, code, period='1d', one_min='1', retry_count=3, pause=0.001):
+        """
+        获取分钟分时图数据
+        ---------
+        Parameters:
+          code:string
+                      股票代码 e.g. 600848 或SH000001
+          period:string
+                      分时图周期 1d=当天  5d=5日
+          one_min：string
+                      分钟单位，1=1分钟 2=2分钟  默认为1min
+          retry_count : int, 默认 3
+                     如遇网络等问题重复执行的次数
+          pause : int, 默认 0
+                    重复请求数据过程中暂停的秒数，防止请求间隔时间太短出现的问题
+        return
+        -------
+          DataFrame
+              time 交易日期 
+              current  最新价格
+              volume 成交量
+              avg_price  均价
+        """ 
+        symbol = self._code_to_symbol(code)
+        if period not in ['1d', '5d']:
+           print('period error: period must be 1d or 5d')
+        if one_min not in ['1', '2']:
+           print('one_min error: one_min must be 1 or 2')
+        now = str(int(time.time()*1000))
+        url = self.config['minute_quotes_url']%(symbol, period, one_min, now)
+        for _ in range(retry_count):
+            time.sleep(pause)
+            try:
+                request = self.session.get(url)
+                stocks = json.loads(request.text)
+                if len(stocks['chartlist']) == 0: #no data
+                    print('no data')
+                    return None
+            except Exception as e:
+                print(e)
+            else:
+                df = pd.DataFrame(stocks['chartlist'], columns=self.config['response_format']['xueqiu_minute_quotes'])
+                #date_time = datetime.strptime(df['time'],'%a %b %d %H:%M:%S %z %Y')
+                #time = date_time.strftime('%Y-%m-%d %H:%M:%S')
+                return df
+
+
+    def _code_to_symbol(self, code):
+        """
+            生成symbol代码标志
+        """
+        if len(code) == 8 :
+            return code
+        elif len(code) == 6:
+            return 'SH%s'%code if code[:1] in ['5', '6', '9'] else 'SZ%s'%code
+        else:
+            print('_code_to_symbol error: 请输入6位/8位股票')
+            return ''

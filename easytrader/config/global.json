@@ -44,6 +44,30 @@
       "参考盈亏",
       "参考市价",
       "参考市值"
+   ],
+    "xueqiu_k_data": [
+      "time",
+      "open",
+      "close",
+      "chg",
+      "percent",
+      "low",
+      "high",
+      "volume",
+      "turnrate",
+      "ma5",
+      "ma10",
+      "ma20",
+      "ma30",
+      "dif",
+      "dea",
+      "macd"
+    ],
+    "xueqiu_minute_quotes":[
+      "time",
+      "current",
+      "volume",
+      "avg_price"
     ]
   }
 }
