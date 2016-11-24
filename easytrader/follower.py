@@ -65,7 +65,7 @@ class BaseFollower(object):
         """
         pass
 
-    def follow(self, users, strategies, track_interval=10,
+    def follow(self, users, strategies, track_interval=1,
                trade_cmd_expire_seconds=120, cmd_cache=True, **kwargs):
         """跟踪joinquant对应的模拟交易，支持多用户多策略
         :param users: 支持easytrader的用户对象，支持使用 [] 指定多个用户
@@ -75,7 +75,7 @@ class BaseFollower(object):
             假设组合 ZH000001 加仓 价格为 p 股票 A 10%, 则对应的交易指令为 买入 股票 A 价格 P 股数 1w * 10% / p 并按 100 取整
         :param initial_assets:雪球组合对应的初始资产, 格式 [ 组合1对应资金, 组合2对应资金 ]
             总资产由 初始资产 × 组合净值 算得， total_assets 会覆盖此参数
-        :param track_interval: 轮训模拟交易时间，单位为秒
+        :param track_interval: 轮询模拟交易时间，单位为秒
         :param trade_cmd_expire_seconds: 交易指令过期时间, 单位为秒
         :param cmd_cache: 是否读取存储历史执行过的指令，防止重启时重复执行已经交易过的指令
         """
@@ -184,11 +184,19 @@ class BaseFollower(object):
         with open(self.CMD_CACHE_FILE, 'wb') as f:
             pickle.dump(self.expired_cmds, f)
 
+    @staticmethod
+    def _is_number(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
     def trade_worker(self, users, expire_seconds=120):
         while True:
             trade_cmd = self.trade_queue.get()
             for user in users:
-
+                # check expire
                 now = datetime.now()
                 expire = (now - trade_cmd['datetime']).total_seconds()
                 if expire > expire_seconds:
@@ -198,6 +206,18 @@ class BaseFollower(object):
                             trade_cmd['amount'],
                             trade_cmd['price'], trade_cmd['datetime'], now, expire_seconds))
                     break
+
+                # check price
+                price = trade_cmd['price']
+                if not self._is_number(price) or price <= 0:
+                    log.warning(
+                        '策略 [{}] 指令(股票: {} 动作: {} 数量: {} 价格: {})超时，指令产生时间: {} 当前时间: {}, 价格无效 , 被丢弃'.format(
+                            trade_cmd['strategy_name'], trade_cmd['stock_code'], trade_cmd['action'],
+                            trade_cmd['amount'],
+                            trade_cmd['price'], trade_cmd['datetime'], now))
+                    break
+
+                # check amount
                 if trade_cmd['amount'] <= 0:
                     log.warning(
                         '策略 [{}] 指令(股票: {} 动作: {} 数量: {} 价格: {})超时，指令产生时间: {} 当前时间: {}, 买入股数无效 , 被丢弃'.format(
