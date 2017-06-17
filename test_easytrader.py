@@ -1,15 +1,18 @@
 # coding: utf-8
 
 import unittest
+from unittest import mock
 from datetime import datetime
+import time
 
 import easytrader
-from easytrader import JoinQuantFollower
+from easytrader import JoinQuantFollower, RiceQuantFollower
 from easytrader import helpers
 from easytrader.follower import BaseFollower
 
 
 class TestEasytrader(unittest.TestCase):
+
     def test_helpers(self):
         result = helpers.get_stock_type('162411')
         self.assertEqual(result, 'sz')
@@ -102,8 +105,22 @@ class TestEasytrader(unittest.TestCase):
         result = helpers.str2num(test_data, 'float')
         self.assertAlmostEqual(result, normal_data)
 
+    def test_gf_check_account_live(self):
+        user = easytrader.use('gf')
+
+        test_data = None
+        with self.assertRaises(easytrader.webtrader.NotLoginError):
+            user.check_account_live(test_data)
+        self.assertFalse(user.heart_active)
+
+        test_data = {'success': False, 'data': [{}], 'total': 1}
+        with self.assertRaises(easytrader.webtrader.NotLoginError):
+            user.check_account_live(test_data)
+        self.assertFalse(user.heart_active)
+
 
 class TestXueQiuTrader(unittest.TestCase):
+
     def test_set_initial_assets(self):
         # default set to 1e6
         xq_user = easytrader.use('xq')
@@ -124,6 +141,7 @@ class TestXueQiuTrader(unittest.TestCase):
 
 
 class TestJoinQuantFollower(unittest.TestCase):
+
     def test_extract_strategy_id(self):
         cases = [('https://www.joinquant.com/algorithm/live/index?backtestId=aaaabbbbcccc',
                   'aaaabbbbcccc')]
@@ -166,12 +184,26 @@ class TestJoinQuantFollower(unittest.TestCase):
 
 
 class TestFollower(unittest.TestCase):
+
     def test_is_number(self):
         cases = [('1', True),
                  ('--', False)]
         for string, result in cases:
             test = BaseFollower._is_number(string)
             self.assertEqual(test, result)
+
+    @mock.patch.object(BaseFollower, 'trade_worker', autospec=True)
+    def test_send_interval(self, mock_trade_worker):
+        cases = [(1, 1), (2, 2)]
+        for follower_cls in [JoinQuantFollower, RiceQuantFollower]:
+            for test_data, truth in cases:
+                follower = follower_cls()
+                try:
+                    follower.follow(None, None, send_interval=test_data)
+                except:
+                    pass
+                print(test_data, truth)
+                self.assertEqual(mock_trade_worker.call_args[1]['send_interval'], truth)
 
 
 if __name__ == '__main__':

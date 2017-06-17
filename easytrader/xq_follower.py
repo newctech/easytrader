@@ -1,6 +1,7 @@
 # coding:utf8
 from __future__ import unicode_literals, print_function, division
 
+import json
 import re
 from datetime import datetime
 from numbers import Number
@@ -13,7 +14,7 @@ from .webtrader import NotLoginError
 
 class XueQiuFollower(BaseFollower):
     LOGIN_PAGE = 'https://www.xueqiu.com'
-    LOGIN_API = 'https://xueqiu.com/user/login'
+    LOGIN_API = 'https://xueqiu.com/snowman/login'
     TRANSACTION_API = 'https://xueqiu.com/cubes/rebalancing/history.json'
     PORTFOLIO_URL = 'https://xueqiu.com/p/'
     WEB_REFERER = 'https://www.xueqiu.com'
@@ -86,8 +87,6 @@ class XueQiuFollower(BaseFollower):
 
     @staticmethod
     def extract_strategy_id(strategy_url):
-        if len(strategy_url) != 8:
-            raise ValueError('雪球组合名格式不对, 类似 ZH123456, 设置值: {}'.format(strategy_url))
         return strategy_url
 
     def extract_strategy_name(self, strategy_url):
@@ -112,9 +111,16 @@ class XueQiuFollower(BaseFollower):
         }
         return params
 
+    # noinspection PyMethodOverriding
+    def none_to_zero(self,data):
+        if data==None:
+            return 0
+        else:
+            return data
+
     def project_transactions(self, transactions, assets):
         for t in transactions:
-            weight_diff = t['weight'] - t['prev_weight']
+            weight_diff = self.none_to_zero(t['weight']) - self.none_to_zero(t['prev_weight'])
 
             initial_amount = abs(weight_diff) / 100 * assets / t['price']
             t['amount'] = int(round(initial_amount, -2))
